@@ -1,4 +1,3 @@
-const axios = require('axios');
 const { obtenerConexion } = require('../database/conexion');
 
 // Función para simular el rendimiento promedio histórico
@@ -43,19 +42,63 @@ async function simularRendimientoHistorico(inversion) {
   }
 }
 
-async function guardarSimulacionHistorica(inversion, usuarioId, resultadosPeriodicos) {
+async function guardarSimulacionHistorica(inversion, resultadosPeriodicos, usuarioId) {
   const conexion = await obtenerConexion();
   try {
     const { tipoInversion, montoInicial, numAportaciones, montoAportaciones, plazoInversion } = inversion;
-    const resultadosPeriodicosJson = JSON.stringify(resultadosPeriodicos);
 
-    await conexion.query ("INSERT INTO `historico` (tipo_inversion, monto_inicial, num_aportaciones, monto_aportaciones, plazo_inversion, resultado_simulacion, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)", [tipoInversion, montoInicial, numAportaciones, montoAportaciones, plazoInversion, resultadosPeriodicosJson, usuarioId]);
+    // Asegúrate de que todos los datos sean del tipo adecuado
+    const tipoInversionValido = tipoInversion && typeof tipoInversion === 'string';
+    const montoInicialValido = montoInicial && !isNaN(parseFloat(montoInicial));
+    const numAportacionesValido = numAportaciones !== undefined && !isNaN(parseInt(numAportaciones));
+    const montoAportacionesValido = montoAportaciones !== undefined && !isNaN(parseFloat(montoAportaciones));
+    const plazoInversionValido = plazoInversion !== undefined && !isNaN(parseInt(plazoInversion));
+    const usuarioIdValido = usuarioId && !isNaN(parseInt(usuarioId));
+
+    if (!tipoInversionValido || !montoInicialValido || !numAportacionesValido || !montoAportacionesValido || !plazoInversionValido || !usuarioIdValido) {
+      console.error('Datos inválidos:', {
+        tipoInversion,
+        montoInicial,
+        numAportaciones,
+        montoAportaciones,
+        plazoInversion,
+        usuarioId
+      });
+      throw new Error('Faltan datos necesarios para guardar la simulación histórica');
+    }
+
+    // Convertir los valores a los tipos adecuados
+    const montoInicialNum = parseFloat(montoInicial);
+    const numAportacionesNum = parseInt(numAportaciones);
+    const montoAportacionesNum = parseFloat(montoAportaciones);
+    const plazoInversionNum = parseInt(plazoInversion);
+    const usuarioIdNum = parseInt(usuarioId);
+
+    // Formatear los resultados a dos decimales
+    const resultadosFormateados = resultadosPeriodicos.map(resultado => ({
+      periodo: resultado.periodo,
+      resultado: parseFloat(resultado.resultado.toFixed(2))
+    }));
+
+    const resultadosPeriodicosJson = JSON.stringify(resultadosFormateados);
+
+    // Realizar la inserción en la tabla historico y obtener el ID insertado
+    const [result] = await conexion.query(
+      `INSERT INTO historico (tipo_inversion, monto_inicial, num_aportaciones, monto_aportaciones, plazo_inversion, usuario_id) VALUES (?, ?, ?, ?, ?, ?)`,
+      [tipoInversion, montoInicialNum, numAportacionesNum, montoAportacionesNum, plazoInversionNum, usuarioIdNum]
+    );
 
     const historicoId = result.insertId;
 
-    for (const resultadoPeriodico of resultadosPeriodicos) {
-      await conexion.query("INSERT INTO `resultados_periodicos` (simulacion_id, periodo, resultado, tipo_simulacion) VALUES (?, ?, ?, ?)", [historicoId, resultadoPeriodico.periodo, resultadoPeriodico.resultado, 'historico']);
+    // Realizar las inserciones en la tabla resultados_periodicos
+    for (const resultadoPeriodico of resultadosFormateados) {
+      await conexion.query(
+        `INSERT INTO resultados_periodicos (simulacion_id, periodo, resultado, tipo_simulacion, usuario_id) VALUES (?, ?, ?, ?, ?)`,
+        [historicoId, resultadoPeriodico.periodo, resultadoPeriodico.resultado, 'historico', usuarioIdNum]
+      );
     }
+
+    return historicoId;
   } catch (error) {
     console.error('Error al guardar la simulación histórica:', error.message);
     throw error;
@@ -114,17 +157,61 @@ async function guardarSimulacionAjustado(inversion, resultadosPeriodicos, usuari
   const conexion = await obtenerConexion();
   try {
     const { tipoInversion, montoInicial, numAportaciones, montoAportaciones, plazoInversion } = inversion;
-    const resultadosPeriodicosJson = JSON.stringify(resultadosPeriodicos);
 
-    await conexion.query ("INSERT INTO `ajustado` (tipo_inversion, monto_inicial, num_aportaciones, monto_aportaciones, plazo_inversion, resultado_simulacion, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)", [tipoInversion, montoInicial, numAportaciones, montoAportaciones, plazoInversion, resultadosPeriodicosJson, usuarioId]);
+    // Asegúrate de que todos los datos sean del tipo adecuado
+    const tipoInversionValido = tipoInversion && typeof tipoInversion === 'string';
+    const montoInicialValido = montoInicial && !isNaN(parseFloat(montoInicial));
+    const numAportacionesValido = numAportaciones !== undefined && !isNaN(parseInt(numAportaciones));
+    const montoAportacionesValido = montoAportaciones !== undefined && !isNaN(parseFloat(montoAportaciones));
+    const plazoInversionValido = plazoInversion !== undefined && !isNaN(parseInt(plazoInversion));
+    const usuarioIdValido = usuarioId && !isNaN(parseInt(usuarioId));
+
+    if (!tipoInversionValido || !montoInicialValido || !numAportacionesValido || !montoAportacionesValido || !plazoInversionValido || !usuarioIdValido) {
+      console.error('Datos inválidos:', {
+        tipoInversion,
+        montoInicial,
+        numAportaciones,
+        montoAportaciones,
+        plazoInversion,
+        usuarioId
+      });
+      throw new Error('Faltan datos necesarios para guardar la simulación histórica');
+    }
+
+    // Convertir los valores a los tipos adecuados
+    const montoInicialNum = parseFloat(montoInicial);
+    const numAportacionesNum = parseInt(numAportaciones);
+    const montoAportacionesNum = parseFloat(montoAportaciones);
+    const plazoInversionNum = parseInt(plazoInversion);
+    const usuarioIdNum = parseInt(usuarioId);
+
+    // Formatear los resultados a dos decimales
+    const resultadosFormateados = resultadosPeriodicos.map(resultado => ({
+      periodo: resultado.periodo,
+      resultado: parseFloat(resultado.resultado.toFixed(2))
+    }));
+
+    const resultadosPeriodicosJson = JSON.stringify(resultadosFormateados);
+
+    // Realizar la inserción en la tabla historico y obtener el ID insertado
+    const [result] = await conexion.query(
+      `INSERT INTO ajustado (tipo_inversion, monto_inicial, num_aportaciones, monto_aportaciones, plazo_inversion, usuario_id) VALUES (?, ?, ?, ?, ?, ?)`,
+      [tipoInversion, montoInicialNum, numAportacionesNum, montoAportacionesNum, plazoInversionNum, usuarioIdNum]
+    );
 
     const ajustadoId = result.insertId;
 
-    for (const resultadoPeriodico of resultadosPeriodicos) {
-      await conexion.query("INSERT INTO `resultados_periodicos` (simulacion_id, periodo, resultado, tipo_simulacion) VALUES (?, ?, ?, ?)", [historicoId, resultadoPeriodico.periodo, resultadoPeriodico.resultado, 'ajustado']);
+    // Realizar las inserciones en la tabla resultados_periodicos
+    for (const resultadoPeriodico of resultadosFormateados) {
+      await conexion.query(
+        `INSERT INTO resultados_periodicos (simulacion_id, periodo, resultado, tipo_simulacion, usuario_id) VALUES (?, ?, ?, ?, ?)`,
+        [ajustadoId, resultadoPeriodico.periodo, resultadoPeriodico.resultado, 'ajustado', usuarioIdNum]
+      );
     }
+
+    return ajustadoId;
   } catch (error) {
-    console.error('Error al guardar la simulación ajustada:', error.message);
+    console.error('Error al guardar la simulación histórica:', error.message);
     throw error;
   } finally {
     conexion.release();
@@ -195,60 +282,61 @@ async function guardarSimulacionMontecarlo(inversion, resultadosPeriodicos, usua
   const conexion = await obtenerConexion();
   try {
     const { tipoInversion, montoInicial, numAportaciones, montoAportaciones, plazoInversion } = inversion;
-    const resultadosPeriodicosJson = JSON.stringify(resultadosPeriodicos);
 
-    await conexion.query ("INSERT INTO `montecarlo` (tipo_inversion, monto_inicial, num_aportaciones, monto_aportaciones, plazo_inversion, resultado_simulacion, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)", [tipoInversion, montoInicial, numAportaciones, montoAportaciones, plazoInversion, resultadosPeriodicosJson, usuarioId]);
+    // Asegúrate de que todos los datos sean del tipo adecuado
+    const tipoInversionValido = tipoInversion && typeof tipoInversion === 'string';
+    const montoInicialValido = montoInicial && !isNaN(parseFloat(montoInicial));
+    const numAportacionesValido = numAportaciones !== undefined && !isNaN(parseInt(numAportaciones));
+    const montoAportacionesValido = montoAportaciones !== undefined && !isNaN(parseFloat(montoAportaciones));
+    const plazoInversionValido = plazoInversion !== undefined && !isNaN(parseInt(plazoInversion));
+    const usuarioIdValido = usuarioId && !isNaN(parseInt(usuarioId));
+
+    if (!tipoInversionValido || !montoInicialValido || !numAportacionesValido || !montoAportacionesValido || !plazoInversionValido || !usuarioIdValido) {
+      console.error('Datos inválidos:', {
+        tipoInversion,
+        montoInicial,
+        numAportaciones,
+        montoAportaciones,
+        plazoInversion,
+        usuarioId
+      });
+      throw new Error('Faltan datos necesarios para guardar la simulación histórica');
+    }
+
+    // Convertir los valores a los tipos adecuados
+    const montoInicialNum = parseFloat(montoInicial);
+    const numAportacionesNum = parseInt(numAportaciones);
+    const montoAportacionesNum = parseFloat(montoAportaciones);
+    const plazoInversionNum = parseInt(plazoInversion);
+    const usuarioIdNum = parseInt(usuarioId);
+
+    // Formatear los resultados a dos decimales
+    const resultadosFormateados = resultadosPeriodicos.map(resultado => ({
+      periodo: resultado.periodo,
+      resultado: parseFloat(resultado.resultado.toFixed(2))
+    }));
+
+    const resultadosPeriodicosJson = JSON.stringify(resultadosFormateados);
+
+    // Realizar la inserción en la tabla historico y obtener el ID insertado
+    const [result] = await conexion.query(
+      `INSERT INTO montecarlo (tipo_inversion, monto_inicial, num_aportaciones, monto_aportaciones, plazo_inversion, usuario_id) VALUES (?, ?, ?, ?, ?, ?)`,
+      [tipoInversion, montoInicialNum, numAportacionesNum, montoAportacionesNum, plazoInversionNum, usuarioIdNum]
+    );
 
     const montecarloId = result.insertId;
 
-    for (const resultadoPeriodico of resultadosPeriodicos) {
-      await conexion.query("INSERT INTO `resultados_periodicos` (simulacion_id, periodo, resultado, tipo_simulacion) VALUES (?, ?, ?, ?)", [historicoId, resultadoPeriodico.periodo, resultadoPeriodico.resultado, 'montecarlo']);
+    // Realizar las inserciones en la tabla resultados_periodicos
+    for (const resultadoPeriodico of resultadosFormateados) {
+      await conexion.query(
+        `INSERT INTO resultados_periodicos (simulacion_id, periodo, resultado, tipo_simulacion, usuario_id) VALUES (?, ?, ?, ?, ?)`,
+        [montecarloId, resultadoPeriodico.periodo, resultadoPeriodico.resultado, 'montecarlo', usuarioIdNum]
+      );
     }
+
+    return montecarloId;
   } catch (error) {
-    console.error('Error al guardar la simulación montecarlo:', error.message);
-    throw error;
-  } finally {
-    conexion.release();
-  }
-}
-
-async function guardarMovimiento(historicoId, ajustadoId, montecarloId) {
-  const conexion = await obtenerConexion();
-
-  try {
-    const query = `INSERT INTO movimiento (historico_id, ajustado_id, montecarlo_id) VALUES (?, ?, ?)`;
-    const values = [historicoId, ajustadoId, montecarloId];
-    await conexion.query(query, values);
-  } catch (error) {
-    console.error('Error al guardar el movimiento:', error.message);
-    throw error;
-  } finally {
-    conexion.release();
-  }
-}
-
-async function obtenerTodosMovimientos() {
-  const conexion = await obtenerConexion();
-
-  try {
-    const [result] = await conexion.query(`SELECT * FROM movimiento`);
-    return result;
-  } catch (error) {
-    console.error('Error al obtener los movimientos:', error.message);
-    throw error;
-  } finally {
-    conexion.release();
-  }
-}
-
-async function obtenerMovimientoPorUsuario(usuarioId) {
-  const conexion = await obtenerConexion();
-
-  try {
-    const [result] = await conexion.query(`SELECT * FROM movimiento WHERE usuario_id = ?`, [usuarioId]);
-    return result;
-  } catch (error) {
-    console.error('Error al obtener el movimiento por usuario:', error.message);
+    console.error('Error al guardar la simulación histórica:', error.message);
     throw error;
   } finally {
     conexion.release();
@@ -261,8 +349,5 @@ module.exports = {
   simularRendimientoAjustadoInflacion,
   guardarSimulacionAjustado,
   simularMontecarlo,
-  guardarSimulacionMontecarlo,
-  guardarMovimiento,
-  obtenerTodosMovimientos,
-  obtenerMovimientoPorUsuario
+  guardarSimulacionMontecarlo
 };
